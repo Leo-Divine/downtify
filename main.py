@@ -81,6 +81,7 @@ def _setup_logging(level: str) -> None:
 
 
 DOWNLOAD_DIR = Path(os.getenv('DOWNLOAD_DIR', '/downloads'))
+MUSIC_DIR = Path(os.getenv('MUSIC_DIR', '/music'))
 DATABASE_DIR = Path('/data')
 WEB_GUI_LOCATION = os.getenv('WEB_GUI_LOCATION', '/downtify/frontend/dist')
 DEFAULT_HOST = os.getenv('HOST', '0.0.0.0')
@@ -182,6 +183,7 @@ def _extract_cover(path: Path) -> tuple[bytes | None, str | None]:
 def build_app() -> FastAPI:
     DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
     DATABASE_DIR.mkdir(parents=True, exist_ok=True)
+    MUSIC_DIR.mkdir(parents=True, exist_ok=True)
 
     app = FastAPI(
         title='Downtify',
@@ -206,6 +208,7 @@ def build_app() -> FastAPI:
     api.state.version = __version__
     api.state.downloader = Downloader(
         DOWNLOAD_DIR,
+        MUSIC_DIR,
         audio_format=api.state.settings['format'],
         audio_bitrate=api.state.settings.get('bitrate', '320'),
         output_template=api.state.settings['output'].replace(
@@ -301,6 +304,11 @@ def build_app() -> FastAPI:
         '/downloads',
         StaticFiles(directory=str(DOWNLOAD_DIR)),
         name='downloads',
+    )
+    app.mount(
+        '/music',
+        StaticFiles(directory=str(MUSIC_DIR)),
+        name='music',
     )
     app.mount(
         '/',

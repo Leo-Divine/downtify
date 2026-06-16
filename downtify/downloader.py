@@ -118,6 +118,7 @@ class Downloader:
     def __init__(
         self,
         download_dir: Path | str,
+        music_dir: Path | str,
         audio_format: str = 'mp3',
         audio_bitrate: str = '320',
         output_template: str = '{artists} - {title}',
@@ -126,6 +127,8 @@ class Downloader:
     ):
         self.download_dir = Path(download_dir)
         self.download_dir.mkdir(parents=True, exist_ok=True)
+        self.music_dir = Path(music_dir)
+        self.music_dir.mkdir(parents=True, exist_ok=True)
         self.audio_format = audio_format
         self.audio_bitrate = audio_bitrate
         self.output_template = output_template
@@ -352,6 +355,8 @@ class Downloader:
             embed_metadata(final_path, song)
         except Exception:
             logger.exception('Failed to embed metadata into {}', final_path)
+
+        # ── Move the file to the proper folder
 
         if self.lyrics_providers:
             try:

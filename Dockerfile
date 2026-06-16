@@ -54,6 +54,7 @@ RUN sed -i 's/\r$//g' entrypoint.sh && \
 ENV PATH="/home/downtify/.local/bin:${PATH}"
 
 VOLUME /downloads
+VOLUME /music
 VOLUME /data
 
 EXPOSE ${DOWNTIFY_PORT}
