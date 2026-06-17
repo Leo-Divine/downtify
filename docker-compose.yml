@@ -7,8 +7,8 @@ services:
     ports:
       - '8000:30321'
     volumes:
-      - ./docker/downloads:/downloads
-      - ./docker/music:/music
+      - "C:/Users/isido/Music Downloads:/downloads"
+      - "C:/Users/isido/Music:/music"
       - ./docker/data:/data
       - ./frontend/dist:/downtify/frontend/dist:ro
     environment:

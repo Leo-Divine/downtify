@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 import re
 import re as _re
+import shutil
+import time
 from pathlib import Path
 from typing import Any, Callable, Optional
 
@@ -357,20 +359,7 @@ class Downloader:
             logger.exception('Failed to embed metadata into {}', final_path)
 
         # ── Move the file to the proper folder
-
-        if self.lyrics_providers:
-            try:
-                fetched = lyrics_mod.fetch(song, self.lyrics_providers)
-            except Exception:
-                logger.exception('Lyrics fetch crashed for {}', final_path)
-                fetched = None
-            if fetched is not None:
-                try:
-                    embed_lyrics(final_path, fetched)
-                except Exception:
-                    logger.exception(
-                        'Failed to embed lyrics into {}', final_path
-                    )
+        move_to_music_folder(final_path, song, self.music_dir)
 
         if progress_cb:
             progress_cb(100.0, 'Done')
@@ -521,6 +510,35 @@ def embed_metadata(path: Path, song: dict[str, Any]) -> None:
             track_number,
             album_track_total,
         )
+
+def move_to_music_folder(
+    item: Path,
+    song: dict[str, Any],
+    music_dir: str
+) -> str:
+    track_artist_list = song.get('artists') or ['Unknown Artist']
+    track_artists = str(track_artist_list[0]).strip() if track_artist_list else "Unknown Artist"
+    track_album = song.get('album_name', '') or 'Unknown Album'
+
+    target_dir = music_dir / track_artists / track_album
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    target_file = target_dir / item.name
+
+    if target_file.exists():
+        print(f"Warning: {target_file.name} already exists in destination. Appending timestamp.")
+        target_file = target_dir / f"{item.stem}_{int(time.time())}{item.suffix}"
+    
+    try:
+        shutil.move(str(item), str(target_file))
+        print(f"Successfully moved to: {target_file}")
+    except Exception as e:
+        print(f"Failed to move file: {e}")
+
+    # Save cover image to target path
+    output_path = os.path.join(target_dir, f"cover.jpg")
+    with open(output_path, 'wb') as img_file:
+        img_file.write(_download_cover(song.get('cover_url', '')))
 
 
 def _tag_mp3(

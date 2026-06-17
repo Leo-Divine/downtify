@@ -1,4 +1,4 @@
-module.exports = {
+exports = {
   semi: false,
   tabWidth: 2,
   useTabs: false,

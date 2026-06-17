@@ -1,4 +1,6 @@
-module.exports = {
+import daisyui from 'daisyui'
+
+export default {
   mode: 'jit',
   content: ['./index.html', './src/**/*.{vue,js,ts,jsx,tsx}'],
   theme: {
@@ -126,5 +128,5 @@ module.exports = {
     ],
     darkTheme: 'downtify-dark',
   },
-  plugins: [require('daisyui')],
+  plugins: [daisyui],
 }
