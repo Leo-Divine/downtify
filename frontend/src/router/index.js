@@ -51,4 +51,11 @@ const router = createRouter({
   routes,
 })
 
+router.beforeEach((to, from) => {
+  console.log("Test 1")
+  if(localStorage.getItem('jf_access_token') == null && to.path != '/login') {
+    router.push({ name: 'Login' })
+  }
+})
+
 export default router
