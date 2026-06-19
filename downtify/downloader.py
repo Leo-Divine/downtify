@@ -202,6 +202,7 @@ class Downloader:
     def download(  # noqa: PLR0914
         self,
         song: dict[str, Any],
+        jf_access_token: str,
         progress_cb: Optional[ProgressCallback] = None,
         subdir: Optional[str] = None,
     ) -> str:
@@ -260,11 +261,11 @@ class Downloader:
                     downloaded = data.get('downloaded_bytes') or 0
                     if total:
                         progress_cb(
-                            min(95.0, downloaded / total * 95.0),
+                            min(90.0, downloaded / total * 90.0),
                             'Downloading',
                         )
                 elif status == 'finished':
-                    progress_cb(96.0, 'Converting')
+                    progress_cb(93.0, 'Converting')
             except Exception:
                 logger.opt(exception=True).debug('progress hook error')
 
@@ -353,14 +354,26 @@ class Downloader:
                     'iTunes genre lookup failed for {}', final_path
                 )
 
+        if progress_cb:
+            progress_cb(94.0, 'Embedding Metadata')
         try:
             embed_metadata(final_path, song)
         except Exception:
             logger.exception('Failed to embed metadata into {}', final_path)
 
         # ── Move the file to the proper folder
+        if progress_cb:
+            progress_cb(94.0, 'Moving Files to Proper Directory')
         move_to_music_folder(final_path, song, self.music_dir)
 
+        # ── Request Library Refresh From Jellyfin
+        if progress_cb:
+            progress_cb(95.0, 'Refreshing Jellyfin Server')
+        try:
+            refresh_jellyfin_library(jf_access_token)
+        except Exception:
+            logger.exception('Failed to refresh jellyfin server')
+        
         if progress_cb:
             progress_cb(100.0, 'Done')
         return f'{rel_prefix}{final_path.name}'
@@ -526,20 +539,42 @@ def move_to_music_folder(
     target_file = target_dir / item.name
 
     if target_file.exists():
-        print(f"Warning: {target_file.name} already exists in destination. Appending timestamp.")
+        logger.info(f"Warning: {target_file.name} already exists in destination. Appending timestamp.")
         target_file = target_dir / f"{item.stem}_{int(time.time())}{item.suffix}"
     
     try:
         shutil.move(str(item), str(target_file))
-        print(f"Successfully moved to: {target_file}")
+        logger.info(f"Successfully moved to: {target_file}")
     except Exception as e:
-        print(f"Failed to move file: {e}")
+        logger.info(f"Failed to move file: {e}")
 
     # Save cover image to target path
     output_path = os.path.join(target_dir, f"cover.jpg")
     with open(output_path, 'wb') as img_file:
         img_file.write(_download_cover(song.get('cover_url', '')))
 
+def refresh_jellyfin_library(access_token: str):
+    url = "http://home.casper.dpdns.org/Items/7e64e319657a9516ec78490da03edccb/Refresh"
+    headers = {
+        'Authorization': f'MediaBrowser Token="{access_token}"',
+        'Content-Type': 'application/json'
+    }
+    params = {
+        "Recursive": "true",
+        "MetadataRefreshMode": "FullRefresh",
+        "ImageRefreshMode": "FullRefresh",
+        "ReplaceAllMetadata": "false",
+        "ReplaceAllImages": "false"
+    }
+
+    try:
+        response = requests.post(url, headers=headers, params=params)
+        response.raise_for_status()
+        return
+    except requests.exceptions.RequestException as e:
+        if(e.response.status_code == 401):
+            logger.info('Jellyfin refresh failed. Unauthorized. Token: {}', access_token)
+        raise e
 
 def _tag_mp3(
     path: Path,

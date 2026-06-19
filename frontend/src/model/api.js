@@ -54,8 +54,9 @@ function open(songURL) {
 function download(songURL) {
   const url = typeof songURL === 'string' ? songURL : songURL.url
   const hints = typeof songURL === 'string' ? undefined : songURL
+  const jf_access_token = localStorage.getItem('jf_access_token') ? localStorage.getItem('jf_access_token') : ''
   return API.post('/api/download/url', hints, {
-    params: { url, client_id: sessionID },
+    params: { url, client_id: sessionID, jf_access_token },
   })
 }
 
@@ -118,6 +119,10 @@ function setSettings(settings) {
   })
 }
 
+function authenticateLogin(username, password) {
+  return API.post('/api/auth/login', { username, password })
+}
+
 function ws_onmessage(fn) {
   return (wsConnection.onmessage = fn)
 }
@@ -144,4 +149,5 @@ export default {
   ws_onmessage,
   ws_onerror,
   getVersion,
+  authenticateLogin,
 }

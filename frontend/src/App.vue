@@ -21,7 +21,6 @@ const themeMgr = useBinaryThemeManager()
 onBeforeMount(() => {
   themeMgr.setLightAlias('downtify-light')
   themeMgr.setDarkAlias('downtify-dark')
-  console.log("testing this fucker")
 })
 </script>
 

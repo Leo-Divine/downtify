@@ -20,8 +20,9 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import json
+
 import re
+import requests
 from pathlib import Path
 from typing import Any, Optional
 
@@ -31,6 +32,7 @@ from fastapi import (
     HTTPException,
     Query,
     Request,
+    status,
     WebSocket,
     WebSocketDisconnect,
 )
@@ -250,9 +252,13 @@ def _register_job(song: dict[str, Any], status: str = 'queued') -> str:
 async def _run_download(
     song: dict[str, Any],
     song_id: str,
+    jf_access_token: str,
     subdir: Optional[str] = None,
 ) -> Optional[str]:
     """Run a single download to completion, updating jobs state and broadcasting WS events."""
+
+    # Austin - Debugging Tokens
+    logger.info('Access Token: {}', jf_access_token)
 
     if state.downloader is None:
         raise RuntimeError('Downloader not ready')
@@ -293,7 +299,7 @@ async def _run_download(
             filename = await loop.run_in_executor(
                 None,
                 lambda: state.downloader.download(
-                    song, progress, subdir=subdir
+                    song, jf_access_token, progress, subdir=subdir,
                 ),
             )
     except Exception as exc:
@@ -326,9 +332,12 @@ async def download_endpoint(
     url: str = Query(...),
     client_id: str = Query(''),
     client_hints: Optional[dict[str, Any]] = Body(None),
+    jf_access_token: str = Query(...)
 ):
     if state.downloader is None:
         raise HTTPException(status_code=500, detail='Downloader not ready')
+    if not validate_access_token(jf_access_token):
+        raise HTTPException(status_code=401, detail='Unothorized to make a download')
 
     song = _song_for_download(url)
     tn_before = song.get('track_number')
@@ -348,7 +357,7 @@ async def download_endpoint(
     song_id = _register_job(song, status='downloading')
 
     try:
-        filename = await _run_download(song, song_id)
+        filename = await _run_download(song, song_id, jf_access_token)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     return filename
@@ -380,7 +389,7 @@ async def _process_batch(
     async def _bounded(song: dict[str, Any], song_id: str) -> dict[str, Any]:
         try:
             filename = await _run_download(
-                song, song_id, subdir=playlist_subdir
+                song, song_id, subdir=playlist_subdir, jf_access_token=''
             )
         except Exception:
             filename = None
@@ -763,3 +772,57 @@ async def manual_check_playlist(playlist_id: int) -> dict[str, Any]:
 
     asyncio.create_task(_run())
     return {'status': 'check_started', 'id': playlist_id}
+
+@router.post('/api/auth/login')
+async def authenticate_login(request: Request) -> dict[str, Any]:
+    # Get Parameters From Request
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = {}
+    username = payload.get('username', '')
+    password = payload.get('password', '')
+
+    # Send Request to Jellyfin
+    url = "http://home.casper.dpdns.org"
+    jelly_payload = {
+        "Username": username,
+        "Pw": password, 
+        "Password": ""
+    }
+    jelly_headers = {
+        "Content-Type": "application/json",
+        "X-Emby-Authorization": 'MediaBrowser Client="Python", Device="Script", DeviceId="python-script", Version="1.0.0"'
+    }
+    response = requests.post(f"{url}/Users/AuthenticateByName", json=jelly_payload, headers=jelly_headers)
+
+    # Send Over Data
+    if response.status_code == 200:
+        data = response.json()
+        return {'access_token': data["AccessToken"], 'user_id': data["User"]["Id"]}
+    elif response.status_code == 401:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Something went wrong, I got no clue where",
+            headers={},
+        )
+    
+#Checks to make sure a given access_token is still valid
+def validate_access_token(access_token: str) -> bool:
+    url = "http://home.casper.dpdns.org/System/Info"
+    headers = {
+        'Authorization': f'MediaBrowser Token="{access_token}"',
+        'Content-Type': 'application/json'
+    }
+    
+    try:
+        response = requests.get(url, headers=headers, timeout=5)
+        return response.status_code == 200
+    except requests.RequestException:
+        return False
