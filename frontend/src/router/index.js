@@ -7,6 +7,7 @@ import Monitor from '/src/views/Monitor.vue'
 import Player from '/src/views/Player.vue'
 import Login from '/src/views/Login.vue'
 import config from '/src/config'
+import API from '/src/model/api'
 
 const routes = [
   {
@@ -54,7 +55,16 @@ const router = createRouter({
 router.beforeEach((to, from) => {
   if(localStorage.getItem('jf_access_token') == null && to.path != '/login') {
     router.push({ name: 'Login' })
+    return
   }
+
+  API.validateLogin(localStorage.getItem('jf_access_token')).then((res) => {
+    if(!res.data.success) {
+      localStorage.removeItem('jf_access_token')
+      localStorage.removeItem('user_id')
+      router.push({ name: 'Login' })
+    }
+  })
 })
 
 export default router

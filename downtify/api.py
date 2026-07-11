@@ -44,7 +44,7 @@ from .monitor import PlaylistMonitorDB, check_playlist
 
 DEFAULT_SETTINGS: dict[str, Any] = {
     'audio_providers': ['youtube-music'],
-    'lyrics_providers': ['lrclib'],
+    'lyrics_providers': ['syncedlyrics', 'lrclib'],
     'download_lyrics': True,
     'format': 'mp3',
     'bitrate': '320',
@@ -53,17 +53,6 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     'max_parallel_downloads': 3,
     'organize_by_artist': False,
 }
-
-
-def _effective_lyrics_providers(settings: dict[str, Any]) -> list[str]:
-    if not settings.get('download_lyrics', True):
-        return []
-    return [
-        p
-        for p in (settings.get('lyrics_providers') or [])
-        if isinstance(p, str) and p
-    ]
-
 
 class ConnectionManager:
     """Tracks the active WebSocket clients keyed by ``client_id``."""
@@ -256,9 +245,6 @@ async def _run_download(
     subdir: Optional[str] = None,
 ) -> Optional[str]:
     """Run a single download to completion, updating jobs state and broadcasting WS events."""
-
-    # Austin - Debugging Tokens
-    logger.info('Access Token: {}', jf_access_token)
 
     if state.downloader is None:
         raise RuntimeError('Downloader not ready')
@@ -588,10 +574,6 @@ async def update_settings_endpoint(
                 state.downloader.output_template = output.replace(
                     '.{output-ext}', ''
                 )
-            if 'lyrics_providers' in payload or 'download_lyrics' in payload:
-                state.downloader.lyrics_providers = (
-                    _effective_lyrics_providers(state.settings)
-                )
             if 'organize_by_artist' in payload:
                 state.downloader.organize_by_artist = bool(
                     payload['organize_by_artist']
@@ -792,7 +774,7 @@ async def authenticate_login(request: Request) -> dict[str, Any]:
     }
     jelly_headers = {
         "Content-Type": "application/json",
-        "X-Emby-Authorization": 'MediaBrowser Client="Python", Device="Script", DeviceId="python-script", Version="1.0.0"'
+        "X-Emby-Authorization": 'MediaBrowser Client="Downtify", Device="Script", DeviceId="downtify", Version="1.0.0"'
     }
     response = requests.post(f"{url}/Users/AuthenticateByName", json=jelly_payload, headers=jelly_headers)
 
@@ -813,6 +795,11 @@ async def authenticate_login(request: Request) -> dict[str, Any]:
             headers={},
         )
     
+@router.post('/api/auth/validate/{access_token}')
+async def get_access_token_status(access_token: str) -> dict[str, Any]:
+    return {'success': validate_access_token(access_token)}
+    
+
 #Checks to make sure a given access_token is still valid
 def validate_access_token(access_token: str) -> bool:
     url = "http://home.casper.dpdns.org/System/Info"

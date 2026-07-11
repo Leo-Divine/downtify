@@ -123,6 +123,10 @@ function authenticateLogin(username, password) {
   return API.post('/api/auth/login', { username, password })
 }
 
+function validateLogin(apiKey) {
+  return API.post(`/api/auth/validate/${apiKey}`)
+}
+
 function ws_onmessage(fn) {
   return (wsConnection.onmessage = fn)
 }
@@ -150,4 +154,5 @@ export default {
   ws_onerror,
   getVersion,
   authenticateLogin,
+  validateLogin,
 }

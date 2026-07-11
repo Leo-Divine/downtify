@@ -361,6 +361,20 @@ class Downloader:
         except Exception:
             logger.exception('Failed to embed metadata into {}', final_path)
 
+        if self.lyrics_providers:
+            try:
+                fetched = lyrics_mod.fetch(song, self.lyrics_providers)
+            except Exception:
+                logger.exception('Lyrics fetch crashed for {}', final_path)
+                fetched = None
+            if fetched is not None:
+                try:
+                    embed_lyrics(final_path, fetched)
+                except Exception:
+                    logger.exception(
+                        'Failed to embed lyrics into {}', final_path
+                    )
+
         # ── Move the file to the proper folder
         if progress_cb:
             progress_cb(94.0, 'Moving Files to Proper Directory')
@@ -370,7 +384,7 @@ class Downloader:
         if progress_cb:
             progress_cb(95.0, 'Refreshing Jellyfin Server')
         try:
-            refresh_jellyfin_library(jf_access_token)
+             refresh_jellyfin_library(jf_access_token)
         except Exception:
             logger.exception('Failed to refresh jellyfin server')
         
@@ -435,6 +449,7 @@ def embed_metadata(path: Path, song: dict[str, Any]) -> None:
     genre = (song.get('genre') or '').strip()
     cover_bytes = _download_cover(song.get('cover_url', ''))
     track_number, album_track_total = _album_track_index_for_tags(song)
+
     if track_number is None:
         logger.info(
             'Tag embed: no track_number/disc position for file={} '
@@ -533,7 +548,8 @@ def move_to_music_folder(
     track_artists = str(track_artist_list[0]).strip() if track_artist_list else "Unknown Artist"
     track_album = song.get('album_name', '') or 'Unknown Album'
 
-    target_dir = music_dir / track_artists / track_album
+    target_dir = music_dir / track_artists / track_album.replace(".", "").replace("/", "").replace("\\", "")
+    # logger.info(f"Saving file into dir: {target_dir}")
     target_dir.mkdir(parents=True, exist_ok=True)
 
     target_file = target_dir / item.name
@@ -770,16 +786,7 @@ def embed_lyrics(path: Path, lyrics: 'lyrics_mod.Lyrics') -> None:
     if not path.exists() or not lyrics.has_any():
         return
 
-    if lyrics.synced:
-        sidecar = path.with_suffix('.lrc')
-        try:
-            sidecar.write_text(lyrics.synced, encoding='utf-8')
-        except OSError:
-            logger.opt(exception=True).warning(
-                'Could not write LRC sidecar {}', sidecar
-            )
-
-    text = lyrics.plain or _strip_lrc_timestamps(lyrics.synced or '')
+    text = lyrics.synced or lyrics.plain
     if not text:
         return
 
@@ -807,10 +814,3 @@ def embed_lyrics(path: Path, lyrics: 'lyrics_mod.Lyrics') -> None:
         audio = OggOpus(str(path))
         audio['lyrics'] = text
         audio.save()
-
-
-def _strip_lrc_timestamps(synced: str) -> str:
-    cleaned = _re.sub(r'\[\d{1,2}:\d{2}(?:\.\d{1,3})?\]', '', synced)
-    return '\n'.join(
-        line.strip() for line in cleaned.splitlines() if line.strip()
-    )

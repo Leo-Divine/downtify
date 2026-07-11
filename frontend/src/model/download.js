@@ -2,6 +2,7 @@ import { ref, computed } from 'vue'
 
 import API from '/src/model/api'
 import { useSettingsManager } from '/src/model/settings'
+import router from '/src/router'
 
 const STATUS = {
   QUEUED: 'In Queue',
@@ -215,8 +216,17 @@ export function useDownloadManager() {
         }
       })
       .catch((err) => {
-        console.log('Other Error:', err.message)
-        progressTracker.getBySong(song).setError()
+        if(err.status === 401) {
+          localStorage.removeItem('jf_access_token');
+          localStorage.removeItem('user_id');
+          router.push({ name: 'Login' });
+
+          console.log('Authorization Error:', err.message)
+          progressTracker.getBySong(song).setError()
+        } else {
+          console.log('Other Error:', err.message)
+          progressTracker.getBySong(song).setError()
+        }
         return { song, filename: null }
       })
   }

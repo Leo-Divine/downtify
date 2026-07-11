@@ -135,7 +135,7 @@ Return the current settings.
 ```json
 {
   "audio_providers": ["youtube-music"],
-  "lyrics_providers": ["lrclib"],
+  "lyrics_providers": ["lrclib", "syncedlyrics"],
   "download_lyrics": true,
   "format": "mp3",
   "bitrate": "320",

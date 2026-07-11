@@ -1,20 +1,10 @@
-import requests
+import syncedlyrics
 
-url = "http://home.casper.dpdns.org/Items/7e64e319657a9516ec78490da03edccb/Refresh"
-headers = {
-    'Authorization': f'MediaBrowser Token="{'0470b2a55c974028b972335086d5b4b5'}"',
-    'Content-Type': 'application/json'
-}
-params = {
-    "Recursive": "true",
-    "MetadataRefreshMode": "FullRefresh",
-    "ImageRefreshMode": "FullRefresh",
-    "ReplaceAllMetadata": "false",
-    "ReplaceAllImages": "false"
-}
-try:
-    response = requests.post(url, headers=headers, params=params)
-    response.raise_for_status()
-    print('cool')
-except requests.exceptions.RequestException as e:
-    raise e
+# Fetch synced lyrics using a search term (Artist - Title)
+# Use 'synced_only=True' to ensure it returns LRC formatted timestamps
+lrc_lyrics = syncedlyrics.search("Rick Astley - Never Gonna Give You Up", synced_only=True)
+
+if lrc_lyrics:
+    print(lrc_lyrics)
+else:
+    print("Synced lyrics not found.")

@@ -95,27 +95,6 @@
               </span>
             </span>
           </label>
-          <div class="flex items-baseline justify-between mb-1.5">
-            <span class="text-xs text-base-content/50">
-              {{ t('settings.lyricsProvider') }}
-            </span>
-            <span class="text-[10px] text-base-content/40">
-              {{ t('settings.lyricsHint') }}
-            </span>
-          </div>
-          <select
-            class="select w-full rounded-xl bg-base-100/85 border border-white/10 focus:border-primary/60 disabled:opacity-40"
-            v-model="sm.settings.value.lyrics_providers[0]"
-            :disabled="!sm.settings.value.download_lyrics"
-          >
-            <option
-              v-for="provider in sm.settingsOptions.lyrics_providers"
-              :key="provider"
-              :value="provider"
-            >
-              {{ provider }}
-            </option>
-          </select>
         </div>
 
         <!-- Format & bitrate -->
